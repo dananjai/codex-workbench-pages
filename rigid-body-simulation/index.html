@@ -1,0 +1,1775 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>剛体の運動シミュレーション</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f9fc;
+      --panel: #ffffff;
+      --ink: #182033;
+      --muted: #667085;
+      --line: #d7dde8;
+      --body: #dfe8ef;
+      --body-edge: #4c6170;
+      --blue: #2563eb;
+      --green: #159447;
+      --orange: #f97316;
+      --red: #e11d48;
+      --teal: #0f766e;
+      --amber: #d97706;
+      --shadow: 0 14px 34px rgba(24, 32, 51, 0.11);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Yu Gothic UI", "Hiragino Kaku Gothic ProN", Meiryo, system-ui, sans-serif;
+    }
+
+    body {
+      overflow: hidden;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      height: 100vh;
+      min-height: 0;
+    }
+
+    .stage {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      height: 100vh;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 64px;
+      padding: 14px 18px 12px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(10px);
+    }
+
+    .title {
+      min-width: 0;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 21px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: currentColor;
+    }
+
+    .canvas-shell {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      padding: 14px;
+    }
+
+    #simCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 520px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+      box-shadow: var(--shadow);
+      touch-action: none;
+      cursor: crosshair;
+    }
+
+    .hint {
+      position: absolute;
+      left: 28px;
+      bottom: 28px;
+      max-width: min(560px, calc(100% - 56px));
+      padding: 10px 12px;
+      border: 1px solid rgba(37, 99, 235, 0.2);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.9);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+      pointer-events: none;
+    }
+
+    .toast {
+      position: absolute;
+      top: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 9px 12px;
+      border-radius: 999px;
+      background: rgba(24, 32, 51, 0.88);
+      color: #fff;
+      font-size: 13px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 160ms ease, transform 160ms ease;
+    }
+
+    .toast.is-visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(3px);
+    }
+
+    .panel {
+      min-height: 0;
+      height: 100vh;
+      overflow: auto;
+      border-left: 1px solid var(--line);
+      background: var(--panel);
+      padding: 16px;
+    }
+
+    .controls {
+      display: grid;
+      gap: 10px;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .button-row.three {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    .btn {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      cursor: pointer;
+    }
+
+    .btn.primary {
+      border-color: var(--blue);
+      background: var(--blue);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .btn:hover {
+      filter: brightness(0.98);
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+    }
+
+    .mode-control {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+    }
+
+    .mode-title {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #eef3f8;
+    }
+
+    .segmented label {
+      position: relative;
+      display: block;
+    }
+
+    .segmented input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .segmented span {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 32px;
+      border-radius: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .segmented input:checked + span {
+      background: #fff;
+      color: var(--blue);
+      box-shadow: 0 1px 4px rgba(24, 32, 51, 0.12);
+    }
+
+    .field-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--blue);
+    }
+
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .section {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: 15px;
+      line-height: 1.3;
+      letter-spacing: 0;
+    }
+
+    .readout {
+      display: grid;
+      gap: 8px;
+    }
+
+    .metric {
+      display: grid;
+      grid-template-columns: 112px minmax(0, 1fr);
+      gap: 10px;
+      align-items: baseline;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+    }
+
+    .metric dt {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .metric dd {
+      margin: 0;
+      overflow-wrap: anywhere;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .formula {
+      margin: 10px 0 0;
+      padding: 10px;
+      border-radius: 8px;
+      background: #edf6ff;
+      color: #14315f;
+      font-family: "Cascadia Mono", Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .force-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .force-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+    }
+
+    .force-main {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
+      min-width: 0;
+    }
+
+    .force-swatch {
+      width: 12px;
+      height: 12px;
+      margin-top: 4px;
+      border-radius: 999px;
+      background: var(--orange);
+    }
+
+    .force-name {
+      display: block;
+      margin-bottom: 3px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .force-detail {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+      overflow-wrap: anywhere;
+    }
+
+    .force-delete {
+      min-width: 34px;
+      min-height: 32px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .force-delete:hover {
+      border-color: var(--red);
+      color: var(--red);
+    }
+
+    .empty {
+      margin: 0;
+      padding: 10px;
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .steps {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .steps li {
+      padding-left: 18px;
+      position: relative;
+    }
+
+    .steps li::before {
+      content: "";
+      position: absolute;
+      left: 2px;
+      top: 0.72em;
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--blue);
+    }
+
+    @media (max-width: 980px) {
+      body {
+        overflow: auto;
+      }
+
+      .app {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+
+      .stage,
+      .panel {
+        height: auto;
+        min-height: auto;
+      }
+
+      .panel {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .canvas-shell {
+        min-height: 68vh;
+      }
+
+      #simCanvas {
+        min-height: 420px;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .legend {
+        justify-content: flex-start;
+      }
+
+      .button-row,
+      .button-row.three {
+        grid-template-columns: 1fr;
+      }
+
+      .metric {
+        grid-template-columns: 1fr;
+        gap: 4px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="stage" aria-label="剛体シミュレーション">
+      <header class="topbar">
+        <div class="title">
+          <h1>剛体の運動シミュレーション</h1>
+          <div class="subtitle">ドラッグで力ベクトルを追加。クリックで剛体の1点を固定。</div>
+        </div>
+        <div class="legend" aria-label="凡例">
+          <span class="chip"><span class="dot" style="color: var(--orange)"></span>力 F</span>
+          <span class="chip"><span class="dot" style="color: var(--blue)"></span>固定点</span>
+          <span class="chip"><span class="dot" style="color: var(--green)"></span>うでの長さ l</span>
+        </div>
+      </header>
+      <div class="canvas-shell">
+        <canvas id="simCanvas"></canvas>
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
+        <div class="hint">自由入力ではゆるくスナップ、グリッド線入力では作用点・終点・固定点が交点に固定されます。力の向きは剛体に対して固定されます。</div>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div class="controls">
+        <div class="button-row">
+          <button class="btn primary" id="startBtn" type="button">スタート</button>
+          <button class="btn" id="resetBtn" type="button">リセット</button>
+        </div>
+        <div class="button-row three">
+          <button class="btn" id="clearForceBtn" type="button">力を全消去</button>
+          <button class="btn" id="clearPinBtn" type="button">固定を消す</button>
+          <button class="btn" id="demoBtn" type="button">例を配置</button>
+        </div>
+
+        <div class="mode-control">
+          <div class="mode-title">入力モード</div>
+          <div class="segmented" role="radiogroup" aria-label="入力モード">
+            <label>
+              <input type="radio" name="inputMode" value="free" checked>
+              <span>自由入力</span>
+            </label>
+            <label>
+              <input type="radio" name="inputMode" value="grid">
+              <span>グリッド線</span>
+            </label>
+          </div>
+        </div>
+
+        <label class="field">
+          <span class="field-line"><span>力を加える時間</span><strong id="durationLabel">1.20 s</strong></span>
+          <input id="durationSlider" type="range" min="0.15" max="3.00" step="0.05" value="1.20">
+        </label>
+
+        <label class="field">
+          <span class="field-line"><span>再生速度</span><strong id="speedLabel">1.00 倍</strong></span>
+          <input id="speedSlider" type="range" min="0.25" max="1.50" step="0.05" value="1.00">
+        </label>
+
+        <label class="check">
+          <input id="forceToggle" type="checkbox" checked>
+          力ベクトルを表示
+        </label>
+
+        <label class="check">
+          <input id="resultantToggle" type="checkbox" checked>
+          合力ベクトルを表示
+        </label>
+
+        <label class="check">
+          <input id="guideToggle" type="checkbox" checked>
+          補助線と作用線を表示
+        </label>
+
+        <label class="check">
+          <input id="momentToggle" type="checkbox" checked>
+          合モーメントを画面に常時表示
+        </label>
+      </div>
+
+      <section class="section">
+        <h2>今の値</h2>
+        <dl class="readout">
+          <div class="metric"><dt>基準点</dt><dd id="originReadout">重心 G</dd></div>
+          <div class="metric"><dt>合力</dt><dd id="forceReadout">-</dd></div>
+          <div class="metric"><dt>うでの長さ</dt><dd id="leverReadout">-</dd></div>
+          <div class="metric" id="momentMetric"><dt>合モーメント</dt><dd id="momentReadout">-</dd></div>
+          <div class="metric"><dt>角加速度</dt><dd id="alphaReadout">-</dd></div>
+          <div class="metric"><dt>スナップ</dt><dd id="snapReadout">なし</dd></div>
+        </dl>
+        <p class="formula" id="formulaReadout">ΣM = Σ(r_i x F_i)</p>
+      </section>
+
+      <section class="section">
+        <h2>力ベクトル</h2>
+        <div class="force-list" id="forceList"></div>
+      </section>
+
+      <section class="section">
+        <h2>授業での見せ方</h2>
+        <ul class="steps">
+          <li>固定なしでスタートすると、同じ力でも重心が並進しながら回転します。</li>
+          <li>固定点を置くと、その点まわりの回転だけになり、うでの長さが見やすくなります。</li>
+          <li>作用線が基準点を通るようにドラッグすると、M = 0 になり回転しません。</li>
+          <li>固定点から作用点への線に垂直な向きへスナップさせると、同じ力でモーメントが大きくなります。</li>
+          <li>複数の力を入れると、それぞれのモーメントの和で回転の向きと強さが決まります。</li>
+        </ul>
+      </section>
+
+      <section class="section">
+        <h2>モデル</h2>
+        <p class="note">均一な薄い板として計算しています。力の向きは剛体に対して固定され、再生中は剛体と一緒に回ります。固定なしでは ΣM = Σ(r_i x F_i) を重心まわりに、固定ありでは固定点まわりに使います。反時計回りを正、時計回りを負として表示します。</p>
+      </section>
+    </aside>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const canvas = document.getElementById("simCanvas");
+      const ctx = canvas.getContext("2d");
+
+      const ui = {
+        startBtn: document.getElementById("startBtn"),
+        resetBtn: document.getElementById("resetBtn"),
+        clearForceBtn: document.getElementById("clearForceBtn"),
+        clearPinBtn: document.getElementById("clearPinBtn"),
+        demoBtn: document.getElementById("demoBtn"),
+        inputModeRadios: Array.from(document.querySelectorAll('input[name="inputMode"]')),
+        durationSlider: document.getElementById("durationSlider"),
+        durationLabel: document.getElementById("durationLabel"),
+        speedSlider: document.getElementById("speedSlider"),
+        speedLabel: document.getElementById("speedLabel"),
+        forceToggle: document.getElementById("forceToggle"),
+        resultantToggle: document.getElementById("resultantToggle"),
+        guideToggle: document.getElementById("guideToggle"),
+        momentToggle: document.getElementById("momentToggle"),
+        originReadout: document.getElementById("originReadout"),
+        forceReadout: document.getElementById("forceReadout"),
+        leverReadout: document.getElementById("leverReadout"),
+        momentMetric: document.getElementById("momentMetric"),
+        momentReadout: document.getElementById("momentReadout"),
+        alphaReadout: document.getElementById("alphaReadout"),
+        snapReadout: document.getElementById("snapReadout"),
+        formulaReadout: document.getElementById("formulaReadout"),
+        forceList: document.getElementById("forceList"),
+        toast: document.getElementById("toast")
+      };
+
+      const colors = {
+        ink: "#182033",
+        muted: "#667085",
+        grid: "#e7ebf2",
+        line: "#c9d2df",
+        body: "#dfe8ef",
+        body2: "#f7fbff",
+        bodyEdge: "#4c6170",
+        blue: "#2563eb",
+        green: "#159447",
+        orange: "#f97316",
+        red: "#e11d48",
+        teal: "#0f766e",
+        amber: "#d97706",
+        pink: "#be185d",
+        ghost: "rgba(76, 97, 112, 0.22)"
+      };
+
+      const forcePalette = [
+        colors.orange,
+        colors.red,
+        colors.teal,
+        colors.amber,
+        colors.pink,
+        "#64748b"
+      ];
+
+      const PX_PER_M = 118;
+      const FREE_GRID_SPACING_M = 0.5;
+      const GRID_INPUT_SPACING_M = 0.25;
+      const FORCE_N_PER_M = 18;
+      const MASS_KG = 4.6;
+      const LINEAR_DAMPING = 0.12;
+      const ANGULAR_DAMPING = 0.10;
+      const SOFT_SNAP_RAD = degToRad(16);
+      const HARD_SNAP_RAD = degToRad(5.5);
+
+      const rawShape = [
+        { x: -1.45, y: -0.55 },
+        { x: -0.62, y: -0.96 },
+        { x: 0.76, y: -0.84 },
+        { x: 1.48, y: -0.18 },
+        { x: 1.18, y: 0.66 },
+        { x: 0.16, y: 0.99 },
+        { x: -1.12, y: 0.78 },
+        { x: -1.62, y: 0.08 }
+      ];
+
+      const shape = centerPolygon(rawShape);
+      const inertia = polygonInertia(shape, MASS_KG);
+      const initial = {
+        pos: { x: 0, y: 0 },
+        angle: degToRad(-8)
+      };
+
+      const state = {
+        pos: { ...initial.pos },
+        angle: initial.angle,
+        vel: { x: 0, y: 0 },
+        omega: 0,
+        elapsed: 0,
+        running: false
+      };
+
+      let view = { w: 800, h: 600, cx: 400, cy: 300, dpr: 1 };
+      let nextForceId = 1;
+      let forces = [
+        createForce({
+          appLocal: { x: -0.74, y: 0.18 },
+          vector: { x: 14.4, y: 8.3 },
+          snapLabel: "なし"
+        })
+      ];
+      let tempForce = null;
+      let fixedLocal = null;
+      let pivotWorld = null;
+      let drag = null;
+      let inputMode = "free";
+      let rafId = 0;
+      let lastFrameTime = 0;
+      let toastTimer = 0;
+
+      function degToRad(deg) {
+        return deg * Math.PI / 180;
+      }
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function add(a, b) {
+        return { x: a.x + b.x, y: a.y + b.y };
+      }
+
+      function sub(a, b) {
+        return { x: a.x - b.x, y: a.y - b.y };
+      }
+
+      function mul(a, k) {
+        return { x: a.x * k, y: a.y * k };
+      }
+
+      function dot(a, b) {
+        return a.x * b.x + a.y * b.y;
+      }
+
+      function cross(a, b) {
+        return a.x * b.y - a.y * b.x;
+      }
+
+      function lenSq(a) {
+        return a.x * a.x + a.y * a.y;
+      }
+
+      function len(a) {
+        return Math.hypot(a.x, a.y);
+      }
+
+      function normalize(a) {
+        const length = len(a);
+        if (length < 1e-9) return { x: 0, y: 0 };
+        return { x: a.x / length, y: a.y / length };
+      }
+
+      function rotate(p, angle) {
+        const c = Math.cos(angle);
+        const s = Math.sin(angle);
+        return {
+          x: c * p.x - s * p.y,
+          y: s * p.x + c * p.y
+        };
+      }
+
+      function normalizeAngle(angle) {
+        let a = angle;
+        while (a <= -Math.PI) a += Math.PI * 2;
+        while (a > Math.PI) a -= Math.PI * 2;
+        return a;
+      }
+
+      function angleDiff(a, b) {
+        return Math.abs(normalizeAngle(a - b));
+      }
+
+      function lerpAngle(a, b, t) {
+        return a + normalizeAngle(b - a) * t;
+      }
+
+      function easeOutCubic(t) {
+        return 1 - Math.pow(1 - t, 3);
+      }
+
+      function polygonAreaCentroid(points) {
+        let twiceArea = 0;
+        let cx = 0;
+        let cy = 0;
+
+        for (let i = 0; i < points.length; i += 1) {
+          const p = points[i];
+          const q = points[(i + 1) % points.length];
+          const z = cross(p, q);
+          twiceArea += z;
+          cx += (p.x + q.x) * z;
+          cy += (p.y + q.y) * z;
+        }
+
+        return {
+          area: twiceArea / 2,
+          centroid: {
+            x: cx / (3 * twiceArea),
+            y: cy / (3 * twiceArea)
+          }
+        };
+      }
+
+      function centerPolygon(points) {
+        const info = polygonAreaCentroid(points);
+        let centered = points.map((p) => ({
+          x: p.x - info.centroid.x,
+          y: p.y - info.centroid.y
+        }));
+
+        if (info.area < 0) {
+          centered = centered.reverse();
+        }
+
+        return centered;
+      }
+
+      function polygonInertia(points, mass) {
+        let twiceArea = 0;
+        let sum = 0;
+
+        for (let i = 0; i < points.length; i += 1) {
+          const p = points[i];
+          const q = points[(i + 1) % points.length];
+          const z = cross(p, q);
+          const term =
+            p.x * p.x + p.x * q.x + q.x * q.x +
+            p.y * p.y + p.y * q.y + q.y * q.y;
+          twiceArea += z;
+          sum += z * term;
+        }
+
+        const area = Math.abs(twiceArea) / 2;
+        const density = mass / area;
+        return Math.abs(density * sum / 12);
+      }
+
+      function worldToScreen(p) {
+        return {
+          x: view.cx + p.x * PX_PER_M,
+          y: view.cy - p.y * PX_PER_M
+        };
+      }
+
+      function screenToWorld(p) {
+        return {
+          x: (p.x - view.cx) / PX_PER_M,
+          y: (view.cy - p.y) / PX_PER_M
+        };
+      }
+
+      function localToWorld(p) {
+        return add(state.pos, rotate(p, state.angle));
+      }
+
+      function localToWorldAt(p, pos, angle) {
+        return add(pos, rotate(p, angle));
+      }
+
+      function worldToLocal(p) {
+        return rotate(sub(p, state.pos), -state.angle);
+      }
+
+      function pointInPolygon(point, polygon) {
+        let inside = false;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
+          const pi = polygon[i];
+          const pj = polygon[j];
+          const intersects =
+            (pi.y > point.y) !== (pj.y > point.y) &&
+            point.x < ((pj.x - pi.x) * (point.y - pi.y)) / (pj.y - pi.y) + pi.x;
+          if (intersects) inside = !inside;
+        }
+        return inside;
+      }
+
+      function fmt(value, digits = 2) {
+        if (!Number.isFinite(value)) return "-";
+        const abs = Math.abs(value);
+        if (abs >= 100) return value.toFixed(0);
+        if (abs >= 10) return value.toFixed(1);
+        return value.toFixed(digits);
+      }
+
+      function signedDirection(value) {
+        if (Math.abs(value) < 0.02) return "ほぼ 0";
+        return value > 0 ? "反時計回り" : "時計回り";
+      }
+
+      function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        view.w = Math.max(1, rect.width);
+        view.h = Math.max(1, rect.height);
+        view.cx = view.w / 2;
+        view.cy = view.h / 2 + 8;
+        view.dpr = Math.max(1, window.devicePixelRatio || 1);
+        canvas.width = Math.round(view.w * view.dpr);
+        canvas.height = Math.round(view.h * view.dpr);
+        ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+        render();
+      }
+
+      function getPointer(event) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top
+        };
+      }
+
+      function isGridMode() {
+        return inputMode === "grid";
+      }
+
+      function snapWorldToInputGrid(world) {
+        if (!isGridMode()) return world;
+        return {
+          x: Math.round(world.x / GRID_INPUT_SPACING_M) * GRID_INPUT_SPACING_M,
+          y: Math.round(world.y / GRID_INPUT_SPACING_M) * GRID_INPUT_SPACING_M
+        };
+      }
+
+      function pointerWorld(event) {
+        return snapWorldToInputGrid(screenToWorld(getPointer(event)));
+      }
+
+      function modeLabel() {
+        return isGridMode() ? "グリッド線入力" : "自由入力";
+      }
+
+      function createForce(input) {
+        const id = nextForceId;
+        nextForceId += 1;
+        const vectorLocal = input.vectorLocal
+          ? { ...input.vectorLocal }
+          : rotate(input.vector, -state.angle);
+        return {
+          id,
+          appLocal: { ...input.appLocal },
+          vectorLocal,
+          snapLabel: input.snapLabel || "なし",
+          color: input.color || forcePalette[(id - 1) % forcePalette.length],
+          isPreview: false
+        };
+      }
+
+      function createPreviewForce(input) {
+        const vectorLocal = input.vectorLocal
+          ? { ...input.vectorLocal }
+          : rotate(input.vector, -state.angle);
+        return {
+          id: "preview",
+          appLocal: { ...input.appLocal },
+          vectorLocal,
+          snapLabel: input.snapLabel || "なし",
+          color: forcePalette[forces.length % forcePalette.length],
+          isPreview: true
+        };
+      }
+
+      function activeForces(includePreview = false) {
+        if (includePreview && tempForce) {
+          return [...forces, tempForce];
+        }
+        return forces;
+      }
+
+      function resetState() {
+        state.pos = { ...initial.pos };
+        state.angle = initial.angle;
+        state.vel = { x: 0, y: 0 };
+        state.omega = 0;
+        state.elapsed = 0;
+        state.running = false;
+        pivotWorld = null;
+        ui.startBtn.textContent = "スタート";
+        requestRender();
+      }
+
+      function configureDemo() {
+        resetState();
+        fixedLocal = { x: -0.92, y: -0.10 };
+        tempForce = null;
+        forces = [
+          createForce({
+            appLocal: { x: 0.82, y: 0.35 },
+            vector: { x: 1.1, y: 17.6 },
+            snapLabel: "固定点に垂直"
+          }),
+          createForce({
+            appLocal: { x: -0.12, y: -0.62 },
+            vector: { x: 12.4, y: 0 },
+            snapLabel: "横"
+          })
+        ];
+        showToast("2本の力の例を配置しました。スタートで合モーメントを見られます。");
+        requestRender();
+      }
+
+      function startSimulation() {
+        if (!forces.some((force) => len(force.vectorLocal) >= 0.05)) {
+          showToast("先に剛体の上をドラッグして力を入力してください。");
+          return;
+        }
+
+        tempForce = null;
+        resetState();
+        state.running = true;
+        if (fixedLocal) {
+          pivotWorld = localToWorld(fixedLocal);
+          state.pos = sub(pivotWorld, rotate(fixedLocal, state.angle));
+        }
+        ui.startBtn.textContent = "再スタート";
+        lastFrameTime = performance.now();
+        requestRender();
+      }
+
+      function updatePhysics(dt) {
+        const speed = Number(ui.speedSlider.value);
+        const duration = Number(ui.durationSlider.value);
+        const step = clamp(dt * speed, 0, 1 / 30);
+        state.elapsed += step;
+
+        const forceActive = state.elapsed <= duration;
+        const metrics = forceActive ? currentMetrics(false) : null;
+
+        if (fixedLocal) {
+          if (!pivotWorld) {
+            pivotWorld = localToWorld(fixedLocal);
+          }
+
+          if (metrics) {
+            state.omega += (metrics.torque / metrics.inertia) * step;
+          }
+
+          state.omega *= Math.exp(-ANGULAR_DAMPING * step);
+          state.angle += state.omega * step;
+          state.pos = sub(pivotWorld, rotate(fixedLocal, state.angle));
+        } else {
+          if (metrics) {
+            state.vel.x += (metrics.totalForce.x / MASS_KG) * step;
+            state.vel.y += (metrics.totalForce.y / MASS_KG) * step;
+            state.omega += (metrics.torque / metrics.inertia) * step;
+          }
+
+          const linearDecay = Math.exp(-LINEAR_DAMPING * step);
+          state.vel.x *= linearDecay;
+          state.vel.y *= linearDecay;
+          state.omega *= Math.exp(-ANGULAR_DAMPING * step);
+          state.pos.x += state.vel.x * step;
+          state.pos.y += state.vel.y * step;
+          state.angle += state.omega * step;
+        }
+
+        if (state.elapsed > Math.max(5.5, duration + 4.2)) {
+          state.running = false;
+        }
+      }
+
+      function requestRender() {
+        if (!rafId) {
+          rafId = requestAnimationFrame(frame);
+        }
+      }
+
+      function frame(now) {
+        rafId = 0;
+        if (!lastFrameTime) lastFrameTime = now;
+        const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
+        lastFrameTime = now;
+
+        if (state.running) {
+          updatePhysics(dt);
+        }
+
+        render();
+
+        if (state.running) {
+          requestRender();
+        }
+      }
+
+      function currentOrigin() {
+        return fixedLocal ? localToWorld(fixedLocal) : state.pos;
+      }
+
+      function currentMetrics(includePreview = false) {
+        const usableForces = activeForces(includePreview).filter((force) => len(force.vectorLocal) >= 0.001);
+        if (!usableForces.length) {
+          return null;
+        }
+
+        const origin = currentOrigin();
+        const i = fixedLocal ? inertia + MASS_KG * lenSq(fixedLocal) : inertia;
+        const forceMetrics = usableForces.map((force, index) => {
+          const app = localToWorld(force.appLocal);
+          const forceVector = rotate(force.vectorLocal, state.angle);
+          const forceMag = len(forceVector);
+          const r = sub(app, origin);
+          const torque = cross(r, forceVector);
+          const lever = forceMag > 0 ? Math.abs(torque) / forceMag : 0;
+
+          return {
+            ...force,
+            index,
+            app,
+            force: forceVector,
+            forceMag,
+            r,
+            torque,
+            lever
+          };
+        });
+
+        const totalForce = forceMetrics.reduce((sum, force) => add(sum, force.force), { x: 0, y: 0 });
+        const torque = forceMetrics.reduce((sum, force) => sum + force.torque, 0);
+
+        return {
+          origin,
+          forces: forceMetrics,
+          totalForce,
+          totalForceMag: len(totalForce),
+          torque,
+          forceCount: forceMetrics.filter((force) => !force.isPreview).length,
+          alpha: torque / i,
+          inertia: i
+        };
+      }
+
+      function snapVector(appWorld, rawVector) {
+        const mag = len(rawVector);
+        if (mag < 0.04) {
+          return { vector: rawVector, label: "なし", strength: 0 };
+        }
+
+        const rawAngle = Math.atan2(rawVector.y, rawVector.x);
+        const candidates = [
+          { angle: 0, label: "横" },
+          { angle: Math.PI, label: "横" },
+          { angle: Math.PI / 2, label: "縦" },
+          { angle: -Math.PI / 2, label: "縦" }
+        ];
+
+        if (fixedLocal) {
+          const pin = localToWorld(fixedLocal);
+          const radius = sub(appWorld, pin);
+          if (len(radius) > 0.08) {
+            const tangent = Math.atan2(radius.y, radius.x) + Math.PI / 2;
+            candidates.push({ angle: tangent, label: "固定点に垂直" });
+            candidates.push({ angle: tangent + Math.PI, label: "固定点に垂直" });
+          }
+        }
+
+        let best = candidates[0];
+        let bestDiff = Infinity;
+        for (const candidate of candidates) {
+          const diff = angleDiff(rawAngle, candidate.angle);
+          if (diff < bestDiff) {
+            best = candidate;
+            bestDiff = diff;
+          }
+        }
+
+        if (bestDiff >= SOFT_SNAP_RAD) {
+          return { vector: rawVector, label: "なし", strength: 0 };
+        }
+
+        const rawT = (SOFT_SNAP_RAD - bestDiff) / Math.max(0.001, SOFT_SNAP_RAD - HARD_SNAP_RAD);
+        const strength = bestDiff <= HARD_SNAP_RAD ? 1 : easeOutCubic(clamp(rawT, 0, 1));
+        const angle = strength >= 0.999 ? best.angle : lerpAngle(rawAngle, best.angle, strength);
+
+        return {
+          vector: { x: Math.cos(angle) * mag, y: Math.sin(angle) * mag },
+          label: best.label,
+          strength
+        };
+      }
+
+      function drawBackground() {
+        ctx.clearRect(0, 0, view.w, view.h);
+        ctx.fillStyle = "#fbfdff";
+        ctx.fillRect(0, 0, view.w, view.h);
+
+        ctx.save();
+        const spacingM = isGridMode() ? GRID_INPUT_SPACING_M : FREE_GRID_SPACING_M;
+        const spacing = spacingM * PX_PER_M;
+        const xStart = view.cx % spacing;
+        const yStart = view.cy % spacing;
+        const majorEvery = Math.max(1, Math.round(1 / spacingM));
+
+        for (let x = xStart, index = Math.round((xStart - view.cx) / spacing); x < view.w; x += spacing, index += 1) {
+          ctx.strokeStyle = isGridMode() && index % majorEvery === 0 ? "#d8e0eb" : colors.grid;
+          ctx.globalAlpha = isGridMode() && index % majorEvery !== 0 ? 0.58 : 1;
+          ctx.lineWidth = isGridMode() && index % majorEvery === 0 ? 1.15 : 1;
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, view.h);
+          ctx.stroke();
+        }
+
+        for (let y = yStart, index = Math.round((yStart - view.cy) / spacing); y < view.h; y += spacing, index += 1) {
+          ctx.strokeStyle = isGridMode() && index % majorEvery === 0 ? "#d8e0eb" : colors.grid;
+          ctx.globalAlpha = isGridMode() && index % majorEvery !== 0 ? 0.58 : 1;
+          ctx.lineWidth = isGridMode() && index % majorEvery === 0 ? 1.15 : 1;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(view.w, y);
+          ctx.stroke();
+        }
+
+        ctx.globalAlpha = 1;
+        const origin = worldToScreen({ x: 0, y: 0 });
+        ctx.strokeStyle = "#d0d8e5";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, origin.y);
+        ctx.lineTo(view.w, origin.y);
+        ctx.moveTo(origin.x, 0);
+        ctx.lineTo(origin.x, view.h);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function pathBody(pos = state.pos, angle = state.angle) {
+        ctx.beginPath();
+        shape.forEach((point, index) => {
+          const screen = worldToScreen(localToWorldAt(point, pos, angle));
+          if (index === 0) ctx.moveTo(screen.x, screen.y);
+          else ctx.lineTo(screen.x, screen.y);
+        });
+        ctx.closePath();
+      }
+
+      function drawBody() {
+        ctx.save();
+        if (state.running) {
+          pathBody(initial.pos, initial.angle);
+          ctx.setLineDash([8, 8]);
+          ctx.strokeStyle = colors.ghost;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        ctx.shadowColor = "rgba(24, 32, 51, 0.18)";
+        ctx.shadowBlur = 20;
+        ctx.shadowOffsetY = 10;
+        pathBody();
+        const gradient = ctx.createLinearGradient(view.cx - 180, view.cy - 150, view.cx + 180, view.cy + 160);
+        gradient.addColorStop(0, colors.body2);
+        gradient.addColorStop(0.55, colors.body);
+        gradient.addColorStop(1, "#c6d5df");
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        ctx.shadowColor = "transparent";
+        ctx.strokeStyle = colors.bodyEdge;
+        ctx.lineWidth = 2.2;
+        ctx.stroke();
+
+        drawCenterOfMass();
+        ctx.restore();
+      }
+
+      function drawCenterOfMass() {
+        const c = worldToScreen(state.pos);
+        ctx.save();
+        ctx.fillStyle = colors.green;
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        label("G", c.x + 10, c.y - 9, colors.green);
+        ctx.restore();
+      }
+
+      function drawPin() {
+        if (!fixedLocal) return;
+        const pin = worldToScreen(localToWorld(fixedLocal));
+
+        ctx.save();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#ffffff";
+        ctx.fillStyle = colors.blue;
+        ctx.beginPath();
+        ctx.arc(pin.x, pin.y, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.strokeStyle = colors.blue;
+        ctx.beginPath();
+        ctx.moveTo(pin.x, pin.y + 9);
+        ctx.lineTo(pin.x - 12, pin.y + 26);
+        ctx.moveTo(pin.x, pin.y + 9);
+        ctx.lineTo(pin.x + 12, pin.y + 26);
+        ctx.stroke();
+        label("固定点", pin.x + 13, pin.y - 12, colors.blue);
+        ctx.restore();
+      }
+
+      function label(text, x, y, color = colors.ink) {
+        ctx.save();
+        ctx.font = "700 13px Yu Gothic UI, Meiryo, sans-serif";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.86)";
+        const width = ctx.measureText(text).width + 10;
+        ctx.fillRect(x - 4, y - 10, width, 20);
+        ctx.fillStyle = color;
+        ctx.fillText(text, x, y);
+        ctx.restore();
+      }
+
+      function drawArrow(fromWorld, vectorWorld, color, alpha = 1, text = "F") {
+        const from = worldToScreen(fromWorld);
+        const to = worldToScreen(add(fromWorld, vectorWorld));
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const length = Math.hypot(dx, dy);
+        if (length < 8) return;
+
+        const ux = dx / length;
+        const uy = dy / length;
+        const head = 14;
+        const wing = 7;
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 4;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x - ux * head * 0.55, to.y - uy * head * 0.55);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(to.x, to.y);
+        ctx.lineTo(to.x - ux * head - uy * wing, to.y - uy * head + ux * wing);
+        ctx.lineTo(to.x - ux * head + uy * wing, to.y - uy * head - ux * wing);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(from.x, from.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        label(text, to.x + 8, to.y - 10, color);
+        ctx.restore();
+      }
+
+      function drawLineWorld(a, b, style = {}) {
+        const sa = worldToScreen(a);
+        const sb = worldToScreen(b);
+        ctx.save();
+        ctx.strokeStyle = style.color || colors.line;
+        ctx.lineWidth = style.width || 1.5;
+        ctx.globalAlpha = style.alpha ?? 1;
+        if (style.dash) ctx.setLineDash(style.dash);
+        ctx.beginPath();
+        ctx.moveTo(sa.x, sa.y);
+        ctx.lineTo(sb.x, sb.y);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawGuides(metrics) {
+        if (!metrics || !ui.guideToggle.checked) return;
+
+        const origin = metrics.origin;
+        metrics.forces.forEach((force, index) => {
+          const app = force.app;
+          const forceDir = normalize(force.force);
+          if (len(forceDir) < 0.001) return;
+
+          drawLineWorld(add(app, mul(forceDir, -8)), add(app, mul(forceDir, 8)), {
+            color: force.color,
+            alpha: force.isPreview ? 0.20 : 0.26,
+            dash: [8, 8],
+            width: 1.6
+          });
+
+          const foot = add(app, mul(forceDir, dot(sub(origin, app), forceDir)));
+          drawLineWorld(origin, foot, {
+            color: colors.green,
+            alpha: force.isPreview ? 0.55 : 0.82,
+            dash: [5, 5],
+            width: 1.8
+          });
+
+          const footScreen = worldToScreen(foot);
+          label(`l${index + 1}`, footScreen.x + 8, footScreen.y + 8, colors.green);
+
+          if (fixedLocal) {
+            drawLineWorld(origin, app, {
+              color: colors.blue,
+              alpha: force.isPreview ? 0.25 : 0.38,
+              dash: [7, 6],
+              width: 1.7
+            });
+
+            const radius = sub(app, origin);
+            if (len(radius) > 0.08) {
+              const tangent = normalize({ x: -radius.y, y: radius.x });
+              drawLineWorld(add(app, mul(tangent, -2.5)), add(app, mul(tangent, 2.5)), {
+                color: colors.blue,
+                alpha: force.isPreview ? 0.22 : 0.30,
+                dash: [4, 6],
+                width: 2
+              });
+            }
+          }
+
+        });
+      }
+
+      function drawMomentArc(metrics) {
+        if (!metrics || Math.abs(metrics.torque) < 0.04) return;
+        const radius = fixedLocal ? 0.45 : 0.38;
+        const positive = metrics.torque > 0;
+        const start = positive ? degToRad(-55) : degToRad(55);
+        const end = positive ? degToRad(160) : degToRad(-160);
+        const steps = 34;
+        const points = [];
+
+        for (let i = 0; i <= steps; i += 1) {
+          const t = i / steps;
+          const angle = start + (end - start) * t;
+          points.push(add(metrics.origin, { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius }));
+        }
+
+        ctx.save();
+        ctx.strokeStyle = metrics.torque > 0 ? colors.green : colors.red;
+        ctx.fillStyle = ctx.strokeStyle;
+        ctx.lineWidth = 2.3;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        points.forEach((p, index) => {
+          const s = worldToScreen(p);
+          if (index === 0) ctx.moveTo(s.x, s.y);
+          else ctx.lineTo(s.x, s.y);
+        });
+        ctx.stroke();
+
+        const last = worldToScreen(points[points.length - 1]);
+        const prev = worldToScreen(points[points.length - 3]);
+        const dx = last.x - prev.x;
+        const dy = last.y - prev.y;
+        const length = Math.hypot(dx, dy) || 1;
+        const ux = dx / length;
+        const uy = dy / length;
+        ctx.beginPath();
+        ctx.moveTo(last.x, last.y);
+        ctx.lineTo(last.x - ux * 12 - uy * 6, last.y - uy * 12 + ux * 6);
+        ctx.lineTo(last.x - ux * 12 + uy * 6, last.y - uy * 12 - ux * 6);
+        ctx.closePath();
+        ctx.fill();
+        label("M", last.x + 7, last.y - 8, ctx.strokeStyle);
+        ctx.restore();
+      }
+
+      function drawForces(metrics) {
+        if (!metrics) return;
+        const active = !state.running || state.elapsed <= Number(ui.durationSlider.value);
+
+        if (ui.forceToggle.checked) {
+          metrics.forces.forEach((force, index) => {
+            const vectorForDisplay = mul(force.force, 1 / FORCE_N_PER_M);
+            const labelText = force.isPreview ? "入力中" : `F${index + 1}`;
+            const alpha = force.isPreview ? 0.48 : active ? 1 : 0.32;
+            drawArrow(force.app, vectorForDisplay, force.color, alpha, labelText);
+          });
+        }
+
+        if (ui.resultantToggle.checked && metrics.forces.length >= 2 && metrics.totalForceMag > 0.05) {
+          drawArrow(metrics.origin, mul(metrics.totalForce, 1 / FORCE_N_PER_M), colors.ink, active ? 0.44 : 0.20, "ΣF");
+        }
+      }
+
+      function render() {
+        drawBackground();
+        const metrics = currentMetrics(true);
+        drawGuides(metrics);
+        drawBody();
+        drawPin();
+        if (ui.momentToggle.checked) {
+          drawMomentArc(metrics);
+        }
+        drawForces(metrics);
+        updateReadout(metrics);
+      }
+
+      function updateReadout(metrics) {
+        const duration = Number(ui.durationSlider.value);
+        const speed = Number(ui.speedSlider.value);
+        ui.durationLabel.textContent = `${duration.toFixed(2)} s`;
+        ui.speedLabel.textContent = `${speed.toFixed(2)} 倍`;
+        ui.originReadout.textContent = fixedLocal ? "固定点 O" : "重心 G";
+        ui.momentMetric.style.display = ui.momentToggle.checked ? "" : "none";
+        ui.formulaReadout.style.display = ui.momentToggle.checked ? "" : "none";
+        renderForceList(metrics);
+
+        if (!metrics) {
+          ui.forceReadout.textContent = "-";
+          ui.leverReadout.textContent = "-";
+          ui.momentReadout.textContent = "-";
+          ui.alphaReadout.textContent = "-";
+          ui.snapReadout.textContent = "なし";
+          ui.formulaReadout.textContent = "ΣM = Σ(r_i x F_i)";
+          return;
+        }
+
+        const snapLabels = [...new Set(metrics.forces
+          .map((force) => force.snapLabel)
+          .filter((labelText) => labelText && labelText !== "なし"))];
+        ui.snapReadout.textContent = snapLabels.length ? snapLabels.join(" / ") : "なし";
+        ui.forceReadout.textContent =
+          `|ΣF| = ${fmt(metrics.totalForceMag)} N (${metrics.forces.length}本)`;
+        ui.leverReadout.textContent = metrics.forces.length === 1
+          ? `${fmt(metrics.forces[0].lever)} m`
+          : "各力の値を下に表示";
+        ui.momentReadout.textContent = `${fmt(metrics.torque)} N m (${signedDirection(metrics.torque)})`;
+        ui.alphaReadout.textContent = `${fmt(metrics.alpha)} rad/s^2`;
+
+        if (metrics.forces.length === 1) {
+          const force = metrics.forces[0];
+          ui.formulaReadout.textContent =
+            `M = F l = ${fmt(force.forceMag)} x ${fmt(force.lever)} = ${fmt(Math.abs(force.torque))} N m`;
+        } else {
+          const terms = metrics.forces.map((force, index) => `M${index + 1}`).join(" + ");
+          ui.formulaReadout.textContent =
+            `ΣM = ${terms} = ${fmt(metrics.torque)} N m`;
+        }
+      }
+
+      function renderForceList(metrics) {
+        const list = metrics ? metrics.forces.filter((force) => !force.isPreview) : [];
+        ui.forceList.replaceChildren();
+
+        if (!list.length) {
+          const empty = document.createElement("p");
+          empty.className = "empty";
+          empty.textContent = "剛体の上をドラッグすると、力ベクトルを追加できます。";
+          ui.forceList.append(empty);
+          return;
+        }
+
+        list.forEach((force, index) => {
+          const item = document.createElement("div");
+          item.className = "force-item";
+
+          const main = document.createElement("div");
+          main.className = "force-main";
+
+          const swatch = document.createElement("span");
+          swatch.className = "force-swatch";
+          swatch.style.background = force.color;
+
+          const text = document.createElement("div");
+          const name = document.createElement("span");
+          name.className = "force-name";
+          name.textContent = `F${index + 1}`;
+
+          const detail = document.createElement("div");
+          detail.className = "force-detail";
+          detail.textContent =
+            `|F| ${fmt(force.forceMag)} N / l ${fmt(force.lever)} m / M ${fmt(force.torque)} N m`;
+
+          text.append(name, detail);
+          main.append(swatch, text);
+          item.append(main);
+
+          const button = document.createElement("button");
+          button.className = "force-delete";
+          button.type = "button";
+          button.textContent = "消";
+          button.disabled = state.running;
+          button.title = `F${index + 1}を消す`;
+          button.addEventListener("click", () => {
+            resetState();
+            forces = forces.filter((itemForce) => itemForce.id !== force.id);
+            showToast(`F${index + 1}を消しました。`);
+            requestRender();
+          });
+          item.append(button);
+
+          ui.forceList.append(item);
+        });
+      }
+
+      function showToast(text) {
+        ui.toast.textContent = text;
+        ui.toast.classList.add("is-visible");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          ui.toast.classList.remove("is-visible");
+        }, 2200);
+      }
+
+      canvas.addEventListener("pointerdown", (event) => {
+        if (state.running) {
+          showToast("シミュレーション中です。リセットしてから入力できます。");
+          return;
+        }
+
+        const screen = getPointer(event);
+        const world = pointerWorld(event);
+        const local = worldToLocal(world);
+
+        if (!pointInPolygon(local, shape)) {
+          return;
+        }
+
+        drag = {
+          pointerId: event.pointerId,
+          startScreen: screen,
+          currentScreen: screen,
+          startWorld: world,
+          appLocal: local,
+          moved: false
+        };
+        canvas.setPointerCapture(event.pointerId);
+      });
+
+      canvas.addEventListener("pointermove", (event) => {
+        if (!drag || drag.pointerId !== event.pointerId) return;
+
+        const screen = getPointer(event);
+        drag.currentScreen = screen;
+        const distance = Math.hypot(screen.x - drag.startScreen.x, screen.y - drag.startScreen.y);
+
+        if (distance > 6) {
+          drag.moved = true;
+          const currentWorld = pointerWorld(event);
+          const rawVector = sub(currentWorld, drag.startWorld);
+          const snapped = isGridMode()
+            ? { vector: rawVector, label: "グリッド交点", strength: 1 }
+            : snapVector(drag.startWorld, rawVector);
+          tempForce = createPreviewForce({
+            appLocal: { ...drag.appLocal },
+            vector: mul(snapped.vector, FORCE_N_PER_M),
+            snapLabel: snapped.label
+          });
+          requestRender();
+        }
+      });
+
+      canvas.addEventListener("pointerup", (event) => {
+        if (!drag || drag.pointerId !== event.pointerId) return;
+
+        if (drag.moved) {
+          const forceMag = tempForce ? len(tempForce.vectorLocal) : 0;
+          if (tempForce && forceMag >= 0.1) {
+            forces.push(createForce({
+              appLocal: tempForce.appLocal,
+              vectorLocal: tempForce.vectorLocal,
+              snapLabel: tempForce.snapLabel,
+              color: tempForce.color
+            }));
+            showToast(tempForce.snapLabel && tempForce.snapLabel !== "なし"
+              ? `F${forces.length}を追加しました。${tempForce.snapLabel}へスナップしています。`
+              : `F${forces.length}を追加しました。`);
+          } else {
+            showToast("短すぎる力ベクトルは追加しませんでした。");
+          }
+        } else {
+          fixedLocal = { ...drag.appLocal };
+          pivotWorld = null;
+          showToast(isGridMode()
+            ? "固定点をグリッド交点に設定しました。"
+            : "固定点を設定しました。もう一度クリックすると位置を変えられます。");
+        }
+
+        canvas.releasePointerCapture(event.pointerId);
+        tempForce = null;
+        drag = null;
+        requestRender();
+      });
+
+      canvas.addEventListener("pointercancel", () => {
+        tempForce = null;
+        drag = null;
+        requestRender();
+      });
+
+      ui.startBtn.addEventListener("click", startSimulation);
+      ui.resetBtn.addEventListener("click", () => {
+        resetState();
+        showToast("最初の姿勢に戻しました。");
+      });
+      ui.clearForceBtn.addEventListener("click", () => {
+        resetState();
+        forces = [];
+        tempForce = null;
+        showToast("力をすべて消しました。");
+        requestRender();
+      });
+      ui.clearPinBtn.addEventListener("click", () => {
+        resetState();
+        fixedLocal = null;
+        pivotWorld = null;
+        showToast("固定点を消しました。");
+        requestRender();
+      });
+      ui.demoBtn.addEventListener("click", configureDemo);
+      ui.inputModeRadios.forEach((radio) => {
+        radio.addEventListener("change", () => {
+          if (!radio.checked) return;
+          inputMode = radio.value;
+          showToast(isGridMode()
+            ? "グリッド線入力モード: 力と固定点は交点だけに置けます。"
+            : "自由入力モード: これまで通りドラッグ方向へゆるくスナップします。");
+          requestRender();
+        });
+      });
+      ui.durationSlider.addEventListener("input", requestRender);
+      ui.speedSlider.addEventListener("input", requestRender);
+      ui.forceToggle.addEventListener("change", requestRender);
+      ui.resultantToggle.addEventListener("change", requestRender);
+      ui.guideToggle.addEventListener("change", requestRender);
+      ui.momentToggle.addEventListener("change", requestRender);
+
+      window.addEventListener("resize", resizeCanvas);
+      window.addEventListener("keydown", (event) => {
+        if (event.key === " " && document.activeElement === document.body) {
+          event.preventDefault();
+          startSimulation();
+        }
+        if (event.key === "Escape") {
+          resetState();
+        }
+      });
+
+      resizeCanvas();
+      showToast("ドラッグで力、クリックで固定点を入力できます。");
+    })();
+  </script>
+</body>
+</html>
