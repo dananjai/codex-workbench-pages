@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ぽんぽんタップあそび">
+  <rect width="512" height="512" rx="96" fill="#fff6d6"/>
+  <circle cx="166" cy="174" r="82" fill="#48a9ff" opacity=".9"/>
+  <circle cx="328" cy="154" r="66" fill="#ff6b9a" opacity=".9"/>
+  <circle cx="268" cy="322" r="100" fill="#4cc36f" opacity=".92"/>
+  <circle cx="136" cy="146" r="22" fill="#fff" opacity=".85"/>
+  <circle cx="306" cy="132" r="17" fill="#fff" opacity=".85"/>
+  <circle cx="234" cy="286" r="26" fill="#fff" opacity=".85"/>
+  <path d="M132 382c54 40 180 46 250-2" fill="none" stroke="#243040" stroke-width="28" stroke-linecap="round"/>
+</svg>

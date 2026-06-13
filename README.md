@@ -11,4 +11,5 @@ GitHub Pagesで公開するための静的成果物置き場です。
 
 ## 現在の公開物
 
+- `toddler-tap-games/`: 3歳くらいの子ども向けタップゲーム集
 - `rigid-body-simulation/`: 剛体の運動シミュレーション

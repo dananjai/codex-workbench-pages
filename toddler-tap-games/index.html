@@ -1,0 +1,1106 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#fff6d6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="ぽんぽんあそび">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>ぽんぽんタップあそび</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #fff6d6;
+      --sky: #dff7ff;
+      --grass: #baf0a2;
+      --ink: #243040;
+      --soft-ink: #536173;
+      --panel: rgba(255, 255, 255, 0.88);
+      --line: rgba(36, 48, 64, 0.12);
+      --orange: #ff9f1c;
+      --pink: #ff6b9a;
+      --blue: #48a9ff;
+      --green: #4cc36f;
+      --yellow: #ffd447;
+      --red: #ff6258;
+      --shadow: 0 14px 30px rgba(74, 58, 22, 0.14);
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Yu Gothic UI", "Hiragino Kaku Gothic ProN", Meiryo, system-ui, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+      overscroll-behavior: none;
+    }
+
+    button {
+      font: inherit;
+      color: inherit;
+      border: 0;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .app {
+      position: relative;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      width: 100vw;
+      height: 100svh;
+      min-height: 560px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 18% 16%, rgba(255, 255, 255, 0.85) 0 8%, transparent 9%),
+        radial-gradient(circle at 84% 14%, rgba(255, 255, 255, 0.72) 0 7%, transparent 8%),
+        linear-gradient(180deg, #dff7ff 0%, #f4fbef 58%, #fff6d6 100%);
+    }
+
+    .topbar {
+      z-index: 5;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: calc(10px + var(--safe-top)) calc(12px + var(--safe-right)) 10px calc(12px + var(--safe-left));
+    }
+
+    .home-button,
+    .sound-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 48px;
+      min-height: 48px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: var(--shadow);
+      font-size: 26px;
+    }
+
+    .home-button[hidden] {
+      display: inline-flex;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .title-block {
+      min-width: 0;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(20px, 5vw, 34px);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin-top: 3px;
+      color: var(--soft-ink);
+      font-size: clamp(12px, 3vw, 15px);
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .screen {
+      position: relative;
+      min-height: 0;
+      padding: 8px calc(14px + var(--safe-right)) calc(16px + var(--safe-bottom)) calc(14px + var(--safe-left));
+    }
+
+    .screen[hidden] {
+      display: none;
+    }
+
+    .menu-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      width: min(880px, 100%);
+      height: 100%;
+      max-height: 720px;
+      margin: 0 auto;
+    }
+
+    .game-card {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 190px;
+      padding: 14px;
+      overflow: hidden;
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      text-align: center;
+    }
+
+    .game-card::after {
+      content: "";
+      position: absolute;
+      inset: auto -20px -38px -20px;
+      height: 82px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.42);
+    }
+
+    .game-card:active {
+      transform: scale(0.98);
+    }
+
+    .game-icon {
+      z-index: 1;
+      display: block;
+      font-size: clamp(48px, 14vw, 92px);
+      line-height: 1;
+      filter: drop-shadow(0 8px 12px rgba(36, 48, 64, 0.16));
+    }
+
+    .game-name {
+      z-index: 1;
+      display: block;
+      margin-top: 8px;
+      font-size: clamp(20px, 5vw, 32px);
+      font-weight: 900;
+      line-height: 1.18;
+    }
+
+    .game-note {
+      z-index: 1;
+      display: block;
+      margin-top: 5px;
+      color: var(--soft-ink);
+      font-size: clamp(12px, 3vw, 15px);
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .bubble-card {
+      background: linear-gradient(145deg, #e6fbff, #ffffff);
+    }
+
+    .animal-card {
+      background: linear-gradient(145deg, #fff0f6, #ffffff);
+    }
+
+    .fruit-card {
+      background: linear-gradient(145deg, #f0ffe9, #ffffff);
+    }
+
+    .vehicle-card {
+      background: linear-gradient(145deg, #fff2d8, #ffffff);
+    }
+
+    .game-shell {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      width: min(960px, 100%);
+      height: 100%;
+      margin: 0 auto;
+      gap: 10px;
+    }
+
+    .game-status {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .message {
+      min-height: 48px;
+      padding: 9px 14px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: var(--shadow);
+      font-size: clamp(18px, 5vw, 30px);
+      font-weight: 900;
+      line-height: 1.25;
+      text-align: center;
+    }
+
+    .small-pill {
+      min-height: 48px;
+      padding: 0 14px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: var(--shadow);
+      color: var(--soft-ink);
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .play-field {
+      position: relative;
+      min-height: 0;
+      overflow: hidden;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.58);
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+
+    .bubble-field {
+      background:
+        linear-gradient(180deg, rgba(223, 247, 255, 0.82), rgba(255, 255, 255, 0.48)),
+        radial-gradient(circle at 20% 80%, rgba(186, 240, 162, 0.72), transparent 28%);
+    }
+
+    .bubble {
+      position: absolute;
+      display: grid;
+      place-items: center;
+      width: var(--size);
+      height: var(--size);
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.94) 0 14%, transparent 15%),
+        radial-gradient(circle at 50% 60%, var(--bubble-light), var(--bubble-color));
+      box-shadow:
+        inset -9px -12px 18px rgba(36, 48, 64, 0.10),
+        0 10px 18px rgba(36, 48, 64, 0.12);
+      animation: bubbleFloat var(--float-time) ease-in-out infinite alternate;
+      transform: translate3d(0, 0, 0);
+    }
+
+    .bubble::after {
+      content: "";
+      width: 38%;
+      height: 38%;
+      border-radius: 50%;
+      border: 3px solid rgba(255, 255, 255, 0.55);
+    }
+
+    .bubble:active {
+      transform: scale(0.92);
+    }
+
+    @keyframes bubbleFloat {
+      from { translate: 0 0; }
+      to { translate: 0 -24px; }
+    }
+
+    .pop-ring {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      border: 6px solid var(--ring);
+      border-radius: 50%;
+      pointer-events: none;
+      animation: popRing 520ms ease-out forwards;
+    }
+
+    @keyframes popRing {
+      to {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(3.2);
+      }
+    }
+
+    .animal-field,
+    .vehicle-field,
+    .fruit-field {
+      display: grid;
+      place-items: center;
+      padding: 10px;
+    }
+
+    .animal-stage {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    .nav-round {
+      display: grid;
+      place-items: center;
+      width: clamp(56px, 15vw, 86px);
+      height: clamp(80px, 30vh, 180px);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.86);
+      box-shadow: var(--shadow);
+      color: var(--soft-ink);
+      font-size: clamp(30px, 8vw, 56px);
+      font-weight: 900;
+    }
+
+    .animal-button {
+      display: grid;
+      place-items: center;
+      width: 100%;
+      height: 100%;
+      min-height: 260px;
+      border-radius: 8px;
+      background:
+        radial-gradient(circle at 50% 74%, rgba(255, 255, 255, 0.72) 0 26%, transparent 27%),
+        linear-gradient(155deg, #fff0f6, #fff9df);
+      box-shadow: var(--shadow);
+    }
+
+    .animal-face {
+      display: block;
+      font-size: clamp(112px, 32vw, 230px);
+      line-height: 1;
+      filter: drop-shadow(0 14px 18px rgba(36, 48, 64, 0.18));
+    }
+
+    .animal-label {
+      display: block;
+      margin-top: 10px;
+      font-size: clamp(28px, 8vw, 54px);
+      font-weight: 900;
+    }
+
+    .bounce {
+      animation: bounce 520ms cubic-bezier(.2, .9, .32, 1.2);
+    }
+
+    @keyframes bounce {
+      0% { transform: scale(1); }
+      35% { transform: scale(1.09) translateY(-12px); }
+      70% { transform: scale(0.98) translateY(4px); }
+      100% { transform: scale(1); }
+    }
+
+    .fruit-field {
+      background:
+        linear-gradient(180deg, #dff7ff 0 44%, #baf0a2 45% 100%);
+    }
+
+    .orchard {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      min-height: 300px;
+    }
+
+    .tree {
+      position: absolute;
+      left: 50%;
+      bottom: 74px;
+      width: min(58vw, 420px);
+      height: min(45vh, 330px);
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+
+    .tree::before {
+      content: "";
+      position: absolute;
+      left: 45%;
+      bottom: 0;
+      width: 12%;
+      height: 46%;
+      border-radius: 8px;
+      background: #b4743f;
+    }
+
+    .tree::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 4%;
+      width: 78%;
+      height: 70%;
+      border-radius: 50%;
+      background: #65c76d;
+      box-shadow:
+        -80px 40px 0 #79d681,
+        80px 38px 0 #79d681,
+        0 80px 0 #58ba61;
+      transform: translateX(-50%);
+    }
+
+    .fruit {
+      position: absolute;
+      z-index: 2;
+      display: grid;
+      place-items: center;
+      width: clamp(58px, 16vw, 94px);
+      height: clamp(58px, 16vw, 94px);
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.58);
+      box-shadow: var(--shadow);
+      font-size: clamp(38px, 11vw, 68px);
+    }
+
+    .fruit:active {
+      transform: scale(0.92);
+    }
+
+    .basket {
+      position: absolute;
+      z-index: 3;
+      left: 50%;
+      bottom: 12px;
+      display: grid;
+      place-items: center;
+      width: min(78vw, 420px);
+      min-height: 80px;
+      padding: 12px;
+      border-radius: 8px;
+      background: #b97738;
+      box-shadow: var(--shadow);
+      color: #fff;
+      font-size: clamp(30px, 9vw, 58px);
+      transform: translateX(-50%);
+    }
+
+    .basket::before {
+      content: "";
+      position: absolute;
+      top: -24px;
+      width: 52%;
+      height: 42px;
+      border: 8px solid #b97738;
+      border-bottom: 0;
+      border-radius: 999px 999px 0 0;
+    }
+
+    .fruit-count {
+      position: relative;
+      z-index: 1;
+      font-weight: 900;
+      text-shadow: 0 2px 0 rgba(36, 48, 64, 0.18);
+    }
+
+    .vehicle-stage {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto auto;
+      gap: 12px;
+      width: 100%;
+      height: 100%;
+    }
+
+    .road {
+      position: relative;
+      min-height: 220px;
+      overflow: hidden;
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, #dff7ff 0 50%, #87d37c 51% 66%, #5e6472 67% 100%);
+      box-shadow: var(--shadow);
+    }
+
+    .road::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 18%;
+      height: 8px;
+      background: repeating-linear-gradient(90deg, #fff 0 50px, transparent 50px 94px);
+      opacity: 0.88;
+    }
+
+    .vehicle {
+      position: absolute;
+      left: 8%;
+      bottom: 19%;
+      display: grid;
+      place-items: center;
+      width: clamp(120px, 34vw, 230px);
+      height: clamp(96px, 22vw, 160px);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.22);
+      font-size: clamp(82px, 24vw, 150px);
+      line-height: 1;
+      filter: drop-shadow(0 12px 14px rgba(36, 48, 64, 0.22));
+    }
+
+    .vehicle.is-driving {
+      animation: drive 1.7s cubic-bezier(.25, .78, .38, .98);
+    }
+
+    @keyframes drive {
+      0% { left: 8%; transform: translateY(0); }
+      24% { transform: translateY(-8px); }
+      70% { transform: translateY(2px); }
+      100% { left: 72%; transform: translateY(0); }
+    }
+
+    .vehicle-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .big-button {
+      min-height: 78px;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: var(--shadow);
+      font-size: clamp(24px, 7vw, 42px);
+      font-weight: 900;
+    }
+
+    .go-button {
+      background: var(--orange);
+      color: #fff;
+      text-shadow: 0 2px 0 rgba(36, 48, 64, 0.14);
+    }
+
+    .spark {
+      position: absolute;
+      z-index: 8;
+      pointer-events: none;
+      font-size: clamp(32px, 8vw, 54px);
+      animation: spark 760ms ease-out forwards;
+    }
+
+    @keyframes spark {
+      to {
+        opacity: 0;
+        transform: translateY(-44px) scale(1.35) rotate(14deg);
+      }
+    }
+
+    @media (max-width: 680px) {
+      .app {
+        min-height: 100svh;
+      }
+
+      .menu-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .game-card {
+        min-height: 150px;
+        padding: 10px;
+      }
+
+      .game-status {
+        grid-template-columns: 1fr;
+      }
+
+      .small-pill {
+        min-height: 42px;
+      }
+
+      .animal-stage {
+        gap: 8px;
+      }
+    }
+
+    @media (max-height: 640px) and (orientation: landscape) {
+      .app {
+        min-height: 100svh;
+      }
+
+      .topbar {
+        padding-top: calc(6px + var(--safe-top));
+        padding-bottom: 6px;
+      }
+
+      .subtitle {
+        display: none;
+      }
+
+      .screen {
+        padding-top: 4px;
+      }
+
+      .menu-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .game-card {
+        min-height: 150px;
+      }
+
+      .animal-button {
+        min-height: 180px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" id="app">
+    <header class="topbar">
+      <button class="home-button" id="homeButton" type="button" aria-label="ゲームをえらぶ" hidden>⌂</button>
+      <div class="title-block">
+        <h1 id="pageTitle">ぽんぽんタップあそび</h1>
+        <div class="subtitle" id="pageSubtitle">おおきくタップしてあそぼう</div>
+      </div>
+      <button class="sound-button" id="soundButton" type="button" aria-label="おとをきりかえ">♪</button>
+    </header>
+
+    <section class="screen" id="menuScreen" aria-label="ゲームをえらぶ">
+      <div class="menu-grid">
+        <button class="game-card bubble-card" type="button" data-game="bubbles">
+          <span class="game-icon">🫧</span>
+          <span class="game-name">しゃぼんだま</span>
+          <span class="game-note">ぽんぽん わろう</span>
+        </button>
+        <button class="game-card animal-card" type="button" data-game="animals">
+          <span class="game-icon">🐶</span>
+          <span class="game-name">どうぶつ</span>
+          <span class="game-note">こえを きこう</span>
+        </button>
+        <button class="game-card fruit-card" type="button" data-game="fruits">
+          <span class="game-icon">🍎</span>
+          <span class="game-name">くだもの</span>
+          <span class="game-note">かごに いれよう</span>
+        </button>
+        <button class="game-card vehicle-card" type="button" data-game="vehicles">
+          <span class="game-icon">🚗</span>
+          <span class="game-name">のりもの</span>
+          <span class="game-note">しゅっぱつ</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="screen" id="gameScreen" aria-label="ゲーム" hidden>
+      <div class="game-shell">
+        <div class="game-status">
+          <div class="message" id="message" aria-live="polite">タップしてね</div>
+          <button class="small-pill" id="resetButton" type="button">もういちど</button>
+        </div>
+        <div class="play-field" id="playField"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const pageTitle = document.getElementById("pageTitle");
+      const pageSubtitle = document.getElementById("pageSubtitle");
+      const menuScreen = document.getElementById("menuScreen");
+      const gameScreen = document.getElementById("gameScreen");
+      const playField = document.getElementById("playField");
+      const message = document.getElementById("message");
+      const homeButton = document.getElementById("homeButton");
+      const soundButton = document.getElementById("soundButton");
+      const resetButton = document.getElementById("resetButton");
+
+      const colors = [
+        { name: "あか", color: "#ff6258", light: "#ffd2cf", tone: 392 },
+        { name: "あお", color: "#48a9ff", light: "#ccecff", tone: 523 },
+        { name: "きいろ", color: "#ffd447", light: "#fff2a8", tone: 659 },
+        { name: "みどり", color: "#4cc36f", light: "#c8f4cf", tone: 587 },
+        { name: "ぴんく", color: "#ff6b9a", light: "#ffd4e4", tone: 698 }
+      ];
+
+      const animals = [
+        { name: "いぬ", face: "🐶", voice: "わんわん", tones: [392, 523] },
+        { name: "ねこ", face: "🐱", voice: "にゃー", tones: [659, 587] },
+        { name: "うし", face: "🐮", voice: "もー", tones: [196, 220] },
+        { name: "ぶた", face: "🐷", voice: "ぶーぶー", tones: [262, 262] },
+        { name: "ひよこ", face: "🐥", voice: "ぴよぴよ", tones: [784, 880] },
+        { name: "ぱんだ", face: "🐼", voice: "こんにちは", tones: [330, 392] }
+      ];
+
+      const fruits = [
+        { name: "りんご", icon: "🍎", tone: 523 },
+        { name: "みかん", icon: "🍊", tone: 587 },
+        { name: "ばなな", icon: "🍌", tone: 659 },
+        { name: "ぶどう", icon: "🍇", tone: 698 },
+        { name: "いちご", icon: "🍓", tone: 784 },
+        { name: "めろん", icon: "🍈", tone: 880 }
+      ];
+
+      const vehicles = [
+        { name: "くるま", icon: "🚗", call: "ぶーん", tone: 196 },
+        { name: "でんしゃ", icon: "🚃", call: "がたんごとん", tone: 220 },
+        { name: "しょうぼうしゃ", icon: "🚒", call: "うーうー", tone: 262 },
+        { name: "ひこうき", icon: "✈️", call: "びゅーん", tone: 330 }
+      ];
+
+      let currentGame = null;
+      let cleanupGame = () => {};
+      let audioContext = null;
+      let soundEnabled = localStorage.getItem("tapGamesSound") !== "off";
+      let animalIndex = 0;
+      let vehicleIndex = 0;
+      let fruitCount = 0;
+
+      function setSoundButton() {
+        soundButton.textContent = soundEnabled ? "♪" : "×";
+        soundButton.setAttribute("aria-label", soundEnabled ? "おとをとめる" : "おとをだす");
+      }
+
+      function ensureAudio() {
+        if (!soundEnabled) return null;
+        const AudioCtor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtor) return null;
+        if (!audioContext) audioContext = new AudioCtor();
+        if (audioContext.state === "suspended") audioContext.resume();
+        return audioContext;
+      }
+
+      function tone(freq, duration = 0.13, type = "sine", delay = 0, volume = 0.08) {
+        const ctx = ensureAudio();
+        if (!ctx) return;
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const start = ctx.currentTime + delay;
+        oscillator.type = type;
+        oscillator.frequency.setValueAtTime(freq, start);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(volume, start + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+        oscillator.start(start);
+        oscillator.stop(start + duration + 0.02);
+      }
+
+      function sparkle(target, icon = "⭐") {
+        const rect = target.getBoundingClientRect();
+        const fieldRect = playField.getBoundingClientRect();
+        const spark = document.createElement("div");
+        spark.className = "spark";
+        spark.textContent = icon;
+        spark.style.left = `${rect.left - fieldRect.left + rect.width / 2 - 18}px`;
+        spark.style.top = `${rect.top - fieldRect.top + rect.height / 2 - 18}px`;
+        playField.append(spark);
+        spark.addEventListener("animationend", () => spark.remove(), { once: true });
+      }
+
+      function speak(text) {
+        if (!soundEnabled || !("speechSynthesis" in window)) return;
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = "ja-JP";
+        utterance.rate = 0.9;
+        utterance.pitch = 1.18;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+      }
+
+      function sayAndChime(text, sequence) {
+        speak(text);
+        sequence.forEach((freq, index) => tone(freq, 0.12, "sine", index * 0.12));
+      }
+
+      function setMessage(text) {
+        message.textContent = text;
+      }
+
+      function clearPlayField(className) {
+        cleanupGame();
+        cleanupGame = () => {};
+        playField.className = `play-field ${className}`;
+        playField.replaceChildren();
+      }
+
+      function goHome() {
+        currentGame = null;
+        cleanupGame();
+        cleanupGame = () => {};
+        pageTitle.textContent = "ぽんぽんタップあそび";
+        pageSubtitle.textContent = "おおきくタップしてあそぼう";
+        homeButton.hidden = true;
+        gameScreen.hidden = true;
+        menuScreen.hidden = false;
+      }
+
+      function openGame(gameName) {
+        currentGame = gameName;
+        menuScreen.hidden = true;
+        gameScreen.hidden = false;
+        homeButton.hidden = false;
+        resetButton.hidden = false;
+
+        if (gameName === "bubbles") renderBubbles();
+        if (gameName === "animals") renderAnimals();
+        if (gameName === "fruits") renderFruits();
+        if (gameName === "vehicles") renderVehicles();
+      }
+
+      function resetCurrentGame() {
+        if (currentGame) openGame(currentGame);
+      }
+
+      function randomBetween(min, max) {
+        return min + Math.random() * (max - min);
+      }
+
+      function renderBubbles() {
+        pageTitle.textContent = "しゃぼんだま";
+        pageSubtitle.textContent = "タップでぽん";
+        setMessage("しゃぼんだまを ぽん");
+        clearPlayField("bubble-field");
+        resetButton.textContent = "ふやす";
+
+        const createBubble = () => {
+          const item = colors[Math.floor(Math.random() * colors.length)];
+          const bubble = document.createElement("button");
+          const size = Math.round(randomBetween(70, 118));
+          bubble.className = "bubble";
+          bubble.type = "button";
+          bubble.setAttribute("aria-label", `${item.name}のしゃぼんだま`);
+          bubble.style.setProperty("--size", `${size}px`);
+          bubble.style.setProperty("--bubble-color", item.color);
+          bubble.style.setProperty("--bubble-light", item.light);
+          bubble.style.setProperty("--float-time", `${randomBetween(1.7, 3.2).toFixed(2)}s`);
+          bubble.style.left = `${randomBetween(3, 82)}%`;
+          bubble.style.top = `${randomBetween(8, 76)}%`;
+          bubble.addEventListener("pointerdown", (event) => {
+            event.preventDefault();
+            const rect = bubble.getBoundingClientRect();
+            const fieldRect = playField.getBoundingClientRect();
+            const ring = document.createElement("div");
+            ring.className = "pop-ring";
+            ring.style.setProperty("--ring", item.color);
+            ring.style.left = `${rect.left - fieldRect.left + rect.width / 2}px`;
+            ring.style.top = `${rect.top - fieldRect.top + rect.height / 2}px`;
+            ring.style.transform = "translate(-50%, -50%)";
+            playField.append(ring);
+            ring.addEventListener("animationend", () => ring.remove(), { once: true });
+            bubble.remove();
+            setMessage(`${item.name} ぽん`);
+            sayAndChime(item.name, [item.tone, item.tone * 1.25]);
+            setTimeout(createBubble, 280);
+          });
+          playField.append(bubble);
+        };
+
+        for (let i = 0; i < 9; i += 1) createBubble();
+      }
+
+      function renderAnimals() {
+        pageTitle.textContent = "どうぶつ";
+        pageSubtitle.textContent = "タップでこえ";
+        clearPlayField("animal-field");
+        resetButton.textContent = "さいしょ";
+        const animal = animals[animalIndex];
+        setMessage(`${animal.name}を タップ`);
+
+        const stage = document.createElement("div");
+        stage.className = "animal-stage";
+
+        const prev = document.createElement("button");
+        prev.className = "nav-round";
+        prev.type = "button";
+        prev.textContent = "‹";
+        prev.setAttribute("aria-label", "まえのどうぶつ");
+
+        const animalButton = document.createElement("button");
+        animalButton.className = "animal-button";
+        animalButton.type = "button";
+        animalButton.setAttribute("aria-label", `${animal.name} ${animal.voice}`);
+        animalButton.innerHTML = `<span><span class="animal-face">${animal.face}</span><span class="animal-label">${animal.name}</span></span>`;
+
+        const next = document.createElement("button");
+        next.className = "nav-round";
+        next.type = "button";
+        next.textContent = "›";
+        next.setAttribute("aria-label", "つぎのどうぶつ");
+
+        const move = (step) => {
+          animalIndex = (animalIndex + step + animals.length) % animals.length;
+          renderAnimals();
+        };
+
+        prev.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          tone(330, 0.08);
+          move(-1);
+        });
+
+        next.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          tone(440, 0.08);
+          move(1);
+        });
+
+        animalButton.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          animalButton.classList.remove("bounce");
+          void animalButton.offsetWidth;
+          animalButton.classList.add("bounce");
+          setMessage(animal.voice);
+          sparkle(animalButton, "💛");
+          sayAndChime(animal.voice, animal.tones);
+        });
+
+        stage.append(prev, animalButton, next);
+        playField.append(stage);
+      }
+
+      function renderFruits() {
+        pageTitle.textContent = "くだもの";
+        pageSubtitle.textContent = "かごにいれよう";
+        fruitCount = 0;
+        clearPlayField("fruit-field");
+        resetButton.textContent = "からっぽ";
+        setMessage("くだものを タップ");
+
+        const orchard = document.createElement("div");
+        orchard.className = "orchard";
+        const tree = document.createElement("div");
+        tree.className = "tree";
+        const basket = document.createElement("div");
+        basket.className = "basket";
+        const count = document.createElement("span");
+        count.className = "fruit-count";
+        count.textContent = "0 / 6";
+        basket.append(count);
+        orchard.append(tree, basket);
+        playField.append(orchard);
+
+        const positions = [
+          [18, 26], [35, 15], [53, 24], [68, 18], [28, 46], [49, 43]
+        ];
+
+        fruits.forEach((item, index) => {
+          const fruit = document.createElement("button");
+          fruit.className = "fruit";
+          fruit.type = "button";
+          fruit.textContent = item.icon;
+          fruit.setAttribute("aria-label", item.name);
+          fruit.style.left = `${positions[index][0]}%`;
+          fruit.style.top = `${positions[index][1]}%`;
+          fruit.addEventListener("pointerdown", (event) => {
+            event.preventDefault();
+            if (!fruit.isConnected) return;
+            fruit.remove();
+            fruitCount += 1;
+            count.textContent = `${fruitCount} / 6`;
+            setMessage(`${item.name} ぽん`);
+            sparkle(basket, item.icon);
+            sayAndChime(item.name, [item.tone, item.tone * 1.2]);
+            if (fruitCount === fruits.length) {
+              setMessage("いっぱい できた");
+              sayAndChime("いっぱい できた", [523, 659, 784, 1046]);
+            }
+          });
+          orchard.append(fruit);
+        });
+      }
+
+      function renderVehicles() {
+        pageTitle.textContent = "のりもの";
+        pageSubtitle.textContent = "しゅっぱつ";
+        clearPlayField("vehicle-field");
+        resetButton.textContent = "さいしょ";
+        const vehicle = vehicles[vehicleIndex];
+        setMessage(`${vehicle.name}で あそぼう`);
+
+        const stage = document.createElement("div");
+        stage.className = "vehicle-stage";
+        const road = document.createElement("div");
+        road.className = "road";
+        const car = document.createElement("button");
+        car.className = "vehicle";
+        car.type = "button";
+        car.textContent = vehicle.icon;
+        car.setAttribute("aria-label", `${vehicle.name}をはしらせる`);
+        road.append(car);
+
+        const controls = document.createElement("div");
+        controls.className = "vehicle-controls";
+        const go = document.createElement("button");
+        go.className = "big-button go-button";
+        go.type = "button";
+        go.textContent = "しゅっぱつ";
+        const next = document.createElement("button");
+        next.className = "big-button";
+        next.type = "button";
+        next.textContent = "つぎ";
+        controls.append(go, next);
+
+        const drive = () => {
+          car.classList.remove("is-driving");
+          void car.offsetWidth;
+          car.classList.add("is-driving");
+          setMessage(vehicle.call);
+          sayAndChime(vehicle.call, [vehicle.tone, vehicle.tone * 1.15, vehicle.tone * 0.92]);
+          tone(vehicle.tone / 2, 0.28, "sawtooth", 0.26, 0.04);
+        };
+
+        go.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          drive();
+        });
+        car.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          drive();
+        });
+        next.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          tone(440, 0.08);
+          vehicleIndex = (vehicleIndex + 1) % vehicles.length;
+          renderVehicles();
+        });
+
+        stage.append(road, controls);
+        playField.append(stage);
+      }
+
+      document.querySelectorAll("[data-game]").forEach((button) => {
+        button.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          ensureAudio();
+          tone(523, 0.08);
+          openGame(button.dataset.game);
+        });
+      });
+
+      homeButton.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        tone(330, 0.08);
+        goHome();
+      });
+
+      soundButton.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        soundEnabled = !soundEnabled;
+        localStorage.setItem("tapGamesSound", soundEnabled ? "on" : "off");
+        setSoundButton();
+        if (soundEnabled) {
+          ensureAudio();
+          sayAndChime("おと", [523, 659]);
+        } else if ("speechSynthesis" in window) {
+          window.speechSynthesis.cancel();
+        }
+      });
+
+      resetButton.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        tone(392, 0.08);
+        if (currentGame === "animals") animalIndex = 0;
+        if (currentGame === "vehicles") vehicleIndex = 0;
+        resetCurrentGame();
+      });
+
+      window.addEventListener("pagehide", () => {
+        if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+      });
+
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("./sw.js").catch(() => {});
+        });
+      }
+
+      setSoundButton();
+    })();
+  </script>
+</body>
+</html>
